@@ -621,10 +621,10 @@ $('lobClose').onclick=()=>$('lobby').classList.add('hide');
 <p id="mStatus" style="font-size:14px;font-weight:bold;min-height:18px"></p>
 <p id="mAtk" style="font-size:13px;min-height:16px"></p>
 <div id="mDebug" style="font-size:12px;background:#fff3cd;padding:6px;border-radius:6px;word-break:break-word;min-height:16px"></div>
-<h3>Opponent</h3><div id="oppTeam" style="font-size:13px"></div>
-<h3>Your team</h3><div id="myTeam"></div>
-<h3>Your actions</h3><div id="myActs"></div>
-<h3>Your specials (optional)</h3><div id="mySpecs"></div>
+<h3>Opponent</h3><div id="mOpp" style="font-size:13px"></div>
+<h3>Your team</h3><div id="mTeam"></div>
+<h3>Your actions</h3><div id="mActs"></div>
+<h3>Your specials (optional)</h3><div id="mSpecs"></div>
 <p style="font-size:13px">Boost: <b id="myPts"></b></p>
 <div id="mControls"></div>
 <h3>Log</h3><div id="mLog" style="font-size:12px;max-height:140px;overflow:auto"></div>
@@ -655,28 +655,28 @@ function render(){
   else if(V.phase==='sac')st=myTurn?'Gap '+V.gap+': sacrifice characters with Strength '+V.gap+' or more':'Opponent must sacrifice';
   $('mStatus').textContent=st;
   $('mAtk').textContent=V.phase==='atk'||V.phase==='def'?'Attack value: '+V.atkVal:(V.phase==='sac'?'Gap: '+V.gap:'');
-  $('oppTeam').textContent='';
-  V.opp.team.forEach(c=>{const d=document.createElement('div');d.textContent=c.n+' · Strength '+c.s+(c.ch?' · charged +'+(2*c.ch):'');$('oppTeam').append(d)});
-  const oc=document.createElement('div');oc.textContent='Action cards: '+V.opp.actCount+' · Specials: '+V.opp.specCount+' · Boost: '+V.opp.pts;$('oppTeam').append(oc);
+  $('mOpp').textContent='';
+  V.opp.team.forEach(c=>{const d=document.createElement('div');d.textContent=c.n+' · Strength '+c.s+(c.ch?' · charged +'+(2*c.ch):'');$('mOpp').append(d)});
+  const oc=document.createElement('div');oc.textContent='Action cards: '+V.opp.actCount+' · Specials: '+V.opp.specCount+' · Boost: '+V.opp.pts;$('mOpp').append(oc);
   $('myPts').textContent=V.you.pts+(V.you.bonus?' · attack twice ready':'');
   const sacMode=V.phase==='sac'&&myTurn;
   const playMode=!V.over&&myTurn&&(V.phase==='atk'||V.phase==='def');
   // team
-  $('myTeam').textContent='';
+  $('mTeam').textContent='';
   V.you.team.forEach((c,i)=>{
     const on=sacMode?sacSet.has(i):sel.c===i;
     const label=c.n+' · Str '+c.s+(c.ch?' · +'+(2*c.ch):'');
-    $('myTeam').append(btn(label,on,()=>{
+    $('mTeam').append(btn(label,on,()=>{
       if(sacMode){sacSet.has(i)?sacSet.delete(i):sacSet.add(i);render()}
       else if(playMode){sel.c=i;render()}
     }));
   });
   // actions
-  $('myActs').textContent='';
-  V.you.acts.forEach((a,i)=>{ if(!a)return; $('myActs').append(btn(a.n,sel.a===i,()=>{if(playMode){sel.a=i;render()}})) });
+  $('mActs').textContent='';
+  V.you.acts.forEach((a,i)=>{ if(!a)return; $('mActs').append(btn(a.n,sel.a===i,()=>{if(playMode){sel.a=i;render()}})) });
   // specials
-  $('mySpecs').textContent='';
-  V.you.specs.forEach((s,i)=>{ if(!s)return; $('mySpecs').append(btn(s.n+(s.k==='add'?' (+'+s.v+')':' (utility)'),sel.s===i,()=>{if(playMode){sel.s=sel.s===i?null:i;render()}})) });
+  $('mSpecs').textContent='';
+  V.you.specs.forEach((s,i)=>{ if(!s)return; $('mSpecs').append(btn(s.n+(s.k==='add'?' (+'+s.v+')':' (utility)'),sel.s===i,()=>{if(playMode){sel.s=sel.s===i?null:i;render()}})) });
   // controls
   const box=$('mControls');box.textContent='';
   const row=(t,fn,dis)=>{const b=document.createElement('button');b.className='mode';b.style.marginTop='6px';b.disabled=!!dis;b.innerHTML='<b></b>';b.querySelector('b').textContent=t;b.onclick=fn;box.append(b)};
@@ -692,7 +692,7 @@ function render(){
     }
     row(V.phase==='atk'?'Attack':'Defend',()=>send({type:'play',c:sel.c,a:sel.a,s:sel.s}),sel.c==null||sel.a==null);
   }
-  $('mDebug').textContent+=' | drawn: my team '+$('myTeam').children.length+', opp '+$('oppTeam').children.length+', actions '+$('myActs').children.length;
+  $('mDebug').textContent+=' | drawn: my team '+$('mTeam').children.length+', opp '+$('mOpp').children.length+', actions '+$('mActs').children.length;
   // log
   $('mLog').textContent='';
   (V.log||[]).slice().reverse().forEach(l=>{const d=document.createElement('div');d.textContent=l;$('mLog').append(d)});
