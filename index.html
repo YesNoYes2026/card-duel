@@ -602,19 +602,101 @@ async function refresh(){
     if(!f.friends.length)$('friends').textContent='No friends yet';
     const m=await call({action:'my_matches'});
     $('matches').textContent='';
-    m.matches.forEach(x=>$('matches').append(row((x.code?'Code '+x.code:'Challenge')+' · '+x.status,[])));
+    m.matches.forEach(x=>$('matches').append(row((x.code?'Code '+x.code:'Challenge')+' · '+x.status,[['Open',()=>window.openMatch(x.id)]])));
     if(!m.matches.length)$('matches').textContent='None';
   }catch(e){say(e.message)}
 }
 async function respond(id,accept){try{await call({action:'friend_respond',user_id:id,accept});say(accept?'Friend added.':'Declined.');refresh()}catch(e){say(e.message)}}
 async function challenge(id){try{await call({action:'create_match',friend_id:id,world:world(),n:4,deck:'shared'});say('Challenge sent. Waiting for them to accept.');refresh()}catch(e){say(e.message)}}
 $('findBtn').onclick=async()=>{try{const r=await call({action:'find_user',username:$('findName').value.trim()});await call({action:'friend_request',user_id:r.user.id});say('Request sent to '+r.user.username+'.');$('findName').value='';refresh()}catch(e){say(e.message)}};
-$('codeBtn').onclick=async()=>{try{const r=await call({action:'create_match',world:world(),n:4,deck:'shared'});say('Your code: '+r.code+'. Waiting for someone to join.');refresh()}catch(e){say(e.message)}};
-$('joinBtn').onclick=async()=>{try{await call({action:'join',code:$('joinCode').value});say('Joined. The online board comes in the next step.');refresh()}catch(e){say(e.message)}};
+$('codeBtn').onclick=async()=>{try{const r=await call({action:'create_match',world:world(),n:4,deck:'shared'});say('Your code: '+r.code+'. Waiting for someone to join.');refresh();window.openMatch(r.match_id)}catch(e){say(e.message)}};
+$('joinBtn').onclick=async()=>{try{const r=await call({action:'join',code:$('joinCode').value});refresh();window.openMatch(r.match_id)}catch(e){say(e.message)}};
 $('onlineBtn').onclick=()=>{$('lobby').classList.remove('hide');say('');refresh()};
 $('lobClose').onclick=()=>$('lobby').classList.add('hide');
 })();
 </script>
 <style>#lobby,#lobby *{color:#1d2140 !important}#lobby .mode{background:#fff !important;border:1px solid #9aa3b8 !important}#onlineBtn,#onlineBtn *{color:#1d2140 !important}#onlineBtn{background:#fff !important;border:1px solid #9aa3b8 !important}</style>
+<div class="ov hide" id="match" style="align-items:center;justify-content:center"><div class="card" style="width:100%;max-width:420px;max-height:92vh;overflow:auto">
+<h1>Online match</h1>
+<p id="mStatus" style="font-size:14px;font-weight:bold;min-height:18px"></p>
+<p id="mAtk" style="font-size:13px;min-height:16px"></p>
+<h3>Opponent</h3><div id="oppTeam" style="font-size:13px"></div>
+<h3>Your team</h3><div id="myTeam"></div>
+<h3>Your actions</h3><div id="myActs"></div>
+<h3>Your specials (optional)</h3><div id="mySpecs"></div>
+<p style="font-size:13px">Boost: <b id="myPts"></b></p>
+<div id="mControls"></div>
+<h3>Log</h3><div id="mLog" style="font-size:12px;max-height:140px;overflow:auto"></div>
+<button class="mode" id="mBack"><b>Back to lobby</b></button>
+</div></div>
+<style>#match,#match *{color:#1d2140 !important}#match .mode,#match .pick{background:#fff !important;border:1px solid #9aa3b8 !important;margin:3px 0}#match .pick.on{background:#ffe9b0 !important}</style>
+<script>
+(function(){
+const sb=window.CDsb; const $=id=>document.getElementById(id);
+let MID=null,V=null,sel={c:null,a:null,s:null},sacSet=new Set(),timer=null;
+async function call(body){
+  const {data,error}=await sb.functions.invoke('game',{body});
+  if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(e){}throw new Error(m)}
+  return data;
+}
+function btn(label,on,fn){const b=document.createElement('button');b.className='pick'+(on?' on':'');b.textContent=label;b.onclick=fn;b.style.cssText='display:block;width:100%;text-align:left;padding:6px;border-radius:8px;font-size:13px;cursor:pointer';return b}
+window.openMatch=async function(id){MID=id;sel={c:null,a:null,s:null};sacSet=new Set();$('match').classList.remove('hide');clearInterval(timer);await pull();timer=setInterval(pull,2000)};
+async function pull(){try{const r=await call({action:'state',match_id:MID});if(r.waiting){$('mStatus').textContent='Waiting for an opponent. Invite code: '+r.code;return}V=r.view;render()}catch(e){$('mStatus').textContent=e.message}}
+async function send(move){try{const r=await call({action:'play',match_id:MID,move});V=r.view;sel={c:null,a:null,s:null};sacSet=new Set();render()}catch(e){$('mStatus').textContent=e.message}}
+function render(){
+  if(!V)return;
+  const me=V.side;
+  const myTurn=V.phase==='atk'?V.att===me:V.phase==='def'?V.att!==me:V.phase==='sac'?V.sacSide===me:false;
+  let st='';
+  if(V.over)st='Match over. '+(V.winner===me?'You win!':'Opponent wins.');
+  else if(V.phase==='atk')st=myTurn?'Your attack':'Opponent is attacking';
+  else if(V.phase==='def')st=myTurn?'Defend against '+V.atkVal:'Opponent is defending';
+  else if(V.phase==='sac')st=myTurn?'Gap '+V.gap+': sacrifice characters with Strength '+V.gap+' or more':'Opponent must sacrifice';
+  $('mStatus').textContent=st;
+  $('mAtk').textContent=V.phase==='atk'||V.phase==='def'?'Attack value: '+V.atkVal:(V.phase==='sac'?'Gap: '+V.gap:'');
+  $('oppTeam').textContent='';
+  V.opp.team.forEach(c=>{const d=document.createElement('div');d.textContent=c.n+' · Strength '+c.s+(c.ch?' · charged +'+(2*c.ch):'');$('oppTeam').append(d)});
+  const oc=document.createElement('div');oc.textContent='Action cards: '+V.opp.actCount+' · Specials: '+V.opp.specCount+' · Boost: '+V.opp.pts;$('oppTeam').append(oc);
+  $('myPts').textContent=V.you.pts+(V.you.bonus?' · attack twice ready':'');
+  const sacMode=V.phase==='sac'&&myTurn;
+  const playMode=!V.over&&myTurn&&(V.phase==='atk'||V.phase==='def');
+  // team
+  $('myTeam').textContent='';
+  V.you.team.forEach((c,i)=>{
+    const on=sacMode?sacSet.has(i):sel.c===i;
+    const label=c.n+' · Str '+c.s+(c.ch?' · +'+(2*c.ch):'');
+    $('myTeam').append(btn(label,on,()=>{
+      if(sacMode){sacSet.has(i)?sacSet.delete(i):sacSet.add(i);render()}
+      else if(playMode){sel.c=i;render()}
+    }));
+  });
+  // actions
+  $('myActs').textContent='';
+  V.you.acts.forEach((a,i)=>{ if(!a)return; $('myActs').append(btn(a.n,sel.a===i,()=>{if(playMode){sel.a=i;render()}})) });
+  // specials
+  $('mySpecs').textContent='';
+  V.you.specs.forEach((s,i)=>{ if(!s)return; $('mySpecs').append(btn(s.n+(s.k==='add'?' (+'+s.v+')':' (utility)'),sel.s===i,()=>{if(playMode){sel.s=sel.s===i?null:i;render()}})) });
+  // controls
+  const box=$('mControls');box.textContent='';
+  const row=(t,fn,dis)=>{const b=document.createElement('button');b.className='mode';b.style.marginTop='6px';b.disabled=!!dis;b.innerHTML='<b></b>';b.querySelector('b').textContent=t;b.onclick=fn;box.append(b)};
+  if(sacMode){
+    const tot=[...sacSet].reduce((x,i)=>x+(V.you.team[i]?V.you.team[i].s:0),0);
+    const p=document.createElement('p');p.style.fontSize='13px';p.textContent='Selected strength: '+tot+' of '+V.gap+' needed';box.append(p);
+    row('Sacrifice selected',()=>send({type:'sacrifice',idx:[...sacSet]}),tot<V.gap);
+  } else if(playMode){
+    if(V.phase==='atk'){
+      const ch=sel.c!=null?V.you.team[sel.c]:null;
+      row('Charge selected character (3 Boost)',()=>send({type:'charge',c:sel.c}),!ch||V.you.pts<3||(ch.ch||0)>=2);
+      row('Attack twice (3 Boost)',()=>send({type:'double'}),V.you.pts<3||V.you.bonus);
+    }
+    row(V.phase==='atk'?'Attack':'Defend',()=>send({type:'play',c:sel.c,a:sel.a,s:sel.s}),sel.c==null||sel.a==null);
+  }
+  // log
+  $('mLog').textContent='';
+  (V.log||[]).slice().reverse().forEach(l=>{const d=document.createElement('div');d.textContent=l;$('mLog').append(d)});
+}
+$('mBack').onclick=()=>{clearInterval(timer);$('match').classList.add('hide');};
+})();
+</script>
 </body>
 </html>
