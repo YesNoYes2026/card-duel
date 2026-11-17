@@ -434,7 +434,7 @@ function weakest(){const P=G.P,rs=G.cfg.rs,w={C:null,A:null,S:null};if(rs==='off
   w.A=pickMin(P.acts,a=>Math.max(...P.team.map(ch=>actVal(ch,a))));
   w.S=pickMin(P.specs,s=>s.k==='add'?Math.max(...P.team.map(ch=>specInfo(ch,s,P.team).val)):(utilOK('P',s)?2:1));return w}
 $('repBtn').onclick=()=>{if(!((G.phase==='patk'||G.phase==='pdef')&&!G.lock))return;G.repMode=!G.repMode;G.upMode=false;render()};
-$('pwBonus').onclick=()=>{if(G.phase!=='patk'||G.lock||G.P.pts<NEED||G.bonus.P)return;G.P.pts-=NEED;G.bonus.P=true;$('detail').textContent='Attack twice – you attack again after this, with no refills.';log('You use a Boost to attack twice.');render()};
+$('pwBonus').onclick=()=>{if(G.online){obDouble();return}if(G.phase!=='patk'||G.lock||G.P.pts<NEED||G.bonus.P)return;G.P.pts-=NEED;G.bonus.P=true;$('detail').textContent='Attack twice – you attack again after this, with no refills.';log('You use a Boost to attack twice.');render()};
 
 /* render */
 function pts(el,n){const full=Math.floor(n/NEED),part=n%NEED,R=13,C=2*Math.PI*R,seg=C/NEED;let arcs='';
@@ -455,6 +455,7 @@ function _render(){if(!G)return;{const d=$('dir');d.textContent=G.att==='P'?'⟶
     b.innerHTML=`<div class="top"><span class="ico" style="background:${ECOL[ch.e]}">${ICON[ch.e]}</span><span class="v">${ch.s}</span>${ch.ch?'<span class="star">'+'★'.repeat(ch.ch)+'</span>':''}</div>${artDiv(ch.n)}<div class="nm">${ch.n}</div><div class="s">${ch.sp.join(', ')}</div>`;if(BGC(ch.n))bgHTML(b,ch.n,{col:ECOL[ch.e],badge:`<span class="ico" style="background:${ECOL[ch.e]}">${ICON[ch.e]}</span><b>${ch.s}</b>${ch.ch?'<span class="star">'+'★'.repeat(ch.ch)+'</span>':''}`,bot:`<div class="bgnm">${ch.n}<small>${ch.sp.join(', ')}</small></div>`});else if(FC(ch.n))fcHTML(b,ch.n,ch.ch?'★'.repeat(ch.ch):'','st');
     b.onclick=e=>{if(G.repMode)return toggleRep('C',i);
       if(sac){G.sacSel.has(i)?G.sacSel.delete(i):G.sacSel.add(i);return render()}
+      if(G.online&&G.upMode){obCharge(i);return}
       if(G.upMode){if((ch.ch||0)>=2)return;ch.ch=(ch.ch||0)+1;G.P.pts-=NEED;G.upMode=false;const nm=ch.ch===2?'Supercharge':'Charge';log(nm+': '+ch.n+' now +'+2*ch.ch+' on every hit.');$('detail').textContent=nm+' – '+ch.n+' +'+2*ch.ch+' on every hit ('+SL+' unchanged).';G.sel.c=i;return render()}
       if(!my)return;if(isRep)G.P.rep.C=null;G.sel.c=G.sel.c===i?null:i;render()};mt.appendChild(b)});
   const ar=$('myActs');ar.style.setProperty('--n',G.cfg.n);ar.innerHTML='';
@@ -477,16 +478,16 @@ function _render(){if(!G)return;{const d=$('dir');d.textContent=G.att==='P'?'⟶
     b.innerHTML=`<div class="nm">${s.n}</div>${artDiv(s.n)}<div class="v">${lab}</div><div class="s">${sub}</div>`;if(BGC(s.n))bgHTML(b,s.n,{col:'#C9A227',top:s.n,mid:lab,bot:pills([sub])});else if(FC(s.n))fcHTML(b,s.n,(selCh&&H!=='none')||off?lab:'',/^[+]/.test(lab)?'':'txt');
     b.onclick=e=>{if(G.repMode)return toggleRep('S',i);if(!my||G.upMode)return;if(isRep)G.P.rep.S=null;G.sel.s=G.sel.s===i?null:i;render()};sr.appendChild(b)});
   // powers
-  const canSpend=G.phase==='patk'&&!G.lock&&G.P.pts>=NEED;$('pwUp').classList.toggle('hide',!canSpend||!G.P.team.some(t=>(t.ch||0)<2));$('repBtn').classList.toggle('hide',!my);$('repBtn').textContent=G.repMode?'Done':'Replace';$('repBtn').classList.toggle('on',!!G.repMode);document.body.classList.toggle('repmode',!!G.repMode);$('pwBonus').classList.toggle('hide',!canSpend||G.bonus.P);
+  const canSpend=G.phase==='patk'&&!G.lock&&G.P.pts>=NEED;$('pwUp').classList.toggle('hide',!canSpend||!G.P.team.some(t=>(t.ch||0)<2));$('repBtn').classList.toggle('hide',!my||!!G.online);$('repBtn').textContent=G.repMode?'Done':'Replace';$('repBtn').classList.toggle('on',!!G.repMode);document.body.classList.toggle('repmode',!!G.repMode);$('pwBonus').classList.toggle('hide',!canSpend||G.bonus.P);
   $('deckInfo').textContent=G.cfg.deck==='personal'?'Personal decks':'Decks '+G.deck.C.length+'/'+G.deck.A.length+'/'+G.deck.S.length;
   const go=$('go');
-  if(sac){const sum=[...G.sacSel].reduce((x,i)=>x+G.P.team[i].s,0);$('tot').textContent=sum+' / '+G.gap;$('totL').textContent=SL+' sacrificed';go.disabled=sum<G.gap;go.onclick=confirmSac;return}
+  if(sac){const sum=[...G.sacSel].reduce((x,i)=>x+G.P.team[i].s,0);$('tot').textContent=sum+' / '+G.gap;$('totL').textContent=SL+' sacrificed';go.disabled=sum<G.gap;go.onclick=G.online?obSac:confirmSac;return}
   const us=G.sel.s!=null?G.P.specs[G.sel.s]:null;
-  if(my&&us&&us.k!=='add'&&G.sel.a==null&&utilOK('P',us)&&!G.P.free){const can=us.k==='revive'||G.sel.c!=null;go.textContent=us.k==='revive'?'Revive':'Swap';go.disabled=!can;$('tot').textContent='–';$('totL').textContent=us.k==='revive'?'Add a new character':(G.sel.c!=null?'Swap out '+G.P.team[G.sel.c].n:'Pick who leaves');
+  if(!G.online&&my&&us&&us.k!=='add'&&G.sel.a==null&&utilOK('P',us)&&!G.P.free){const can=us.k==='revive'||G.sel.c!=null;go.textContent=us.k==='revive'?'Revive':'Swap';go.disabled=!can;$('tot').textContent='–';$('totL').textContent=us.k==='revive'?'Add a new character':(G.sel.c!=null?'Swap out '+G.P.team[G.sel.c].n:'Pick who leaves');
     go.onclick=()=>{if(!can)return;const ci=G.sel.c;useUtil('P',G.sel.s,ci);G.sel={c:null,a:null,s:null};go.textContent=G.phase==='patk'?'Attack':'Defend';render()};return}
   go.textContent=G.phase==='pdef'?'Defend':'Attack';
   const ready=my&&G.sel.c!=null&&G.sel.a!=null&&G.P.team[G.sel.c]&&G.P.acts[G.sel.a];
-  $('tot').textContent=ready?(H==='none'?'?':impact('P',G.sel.c,G.sel.a,G.sel.s)):'–';go.disabled=!ready;go.onclick=confirmPlay;
+  $('tot').textContent=ready?(H==='none'?'?':impact('P',G.sel.c,G.sel.a,G.sel.s)):'–';go.disabled=!ready;go.onclick=G.online?obPlay:confirmPlay;
   $('totL').textContent=G.phase==='pdef'?(G.cfg.look!=='classic'?'need '+G.atk:'Your defence · need '+G.atk):(G.cfg.look!=='classic'?'':'Your impact');}
 function repCost(r){return (r.C!=null?RCOST.C:0)+(r.A!=null?RCOST.A:0)+(r.S!=null?RCOST.S:0)}
 let zoomSuppress=false;
@@ -699,6 +700,84 @@ function render(){
 }
 $('mBack').onclick=()=>{clearInterval(timer);$('match').classList.add('hide');};
 })();
+</script>
+
+<script>
+// ===== Online bridge: feeds the server's match into the offline board =====
+const OB={mid:null,world:'naruto',timer:null,key:''};
+function obSetWorld(world){
+  const W=WORLDS[world]; D=W.D; ART=W.ART; FULL=FULLART[world]||{}; BG={};
+  (BGOK[world]||[]).forEach(n=>{if(W.ART[n])BG[n]=W.ART[n]});
+  Object.assign(BG,BGART[world]||{}); EL=D.EL; EK=W.ek; SL=W.str; buildStat();
+  document.body.classList.add('ingame'); document.body.classList.toggle('lc',true); document.body.classList.toggle('la',true);
+}
+async function obCall(body){
+  const {data,error}=await window.CDsb.functions.invoke('game',{body});
+  if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(e){}throw new Error(m)}
+  return data;
+}
+function obBuild(view){
+  const me=view.side, mine=view.you, theirs=view.opp;
+  let phase='wait';
+  if(!view.over){
+    if(view.phase==='atk'&&view.att===me)phase='patk';
+    else if(view.phase==='def'&&view.att!==me)phase='pdef';
+    else if(view.phase==='sac'&&view.sacSide===me)phase='psac';
+  }
+  const key=[view.phase,view.att,view.atkVal,view.gap,mine.team.length,theirs.team.length,view.log.length].join('|');
+  if(!G||!G.online){
+    G={cfg:{look:'art',calc:'on',hint:'off',ht:'strong',rs:'off',dead:'on',deck:'shared',n:4,t:60,world:OB.world},
+       online:true,empty:false,deck:{C:[],A:[],S:[]},disc:{C:[],A:[],S:[]},
+       sel:{c:null,a:null,s:null},sacSel:new Set(),lock:false,upMode:false,repMode:false,bonus:{P:false,AI:false}};
+  }
+  const changed=key!==OB.key; OB.key=key;
+  if(changed){G.sel={c:null,a:null,s:null};G.sacSel=new Set();G.upMode=false;G.lock=false;G.repMode=false;}
+  const rep=(changed||!G.P||!G.P.rep)?{C:null,A:null,S:null}:G.P.rep;
+  G.phase=phase; G.att=view.att===me?'P':'AI'; G.atk=view.atkVal; G.gap=view.gap; G.over=view.over;
+  G.bonus={P:mine.bonus,AI:theirs.bonus};
+  G.P={team:mine.team,acts:mine.acts,specs:mine.specs,pts:mine.pts,rep:rep,hints:0};
+  G.AI={team:theirs.team,acts:[],specs:[],pts:theirs.pts,rep:{C:null,A:null,S:null},hints:0};
+  return phase;
+}
+function obShow(view,phase){
+  const me=view.side;
+  const status=view.over?('Match over. '+(view.winner===me?'You win!':'Opponent wins.'))
+    :phase==='patk'?'Your attack':phase==='pdef'?'Defend against '+view.atkVal
+    :phase==='psac'?'Gap '+view.gap+': choose who to sacrifice'
+    :'Opponent’s turn';
+  $('phase').textContent=status;
+  $('detail').textContent=phase==='patk'?'Pick a character, an action card and (optionally) a special.'
+    :phase==='pdef'?'Match the attack to block.':'';
+  $('log').innerHTML='';
+  (view.log||[]).slice().reverse().forEach(l=>{const d=document.createElement('div');d.textContent=l;$('log').append(d)});
+  if(view.over){clearInterval(OB.timer);$('endT').textContent=view.winner===me?'You win':'Opponent wins';$('endP').textContent='Match over.';$('end').classList.remove('hide')}
+}
+function obRenderAll(view){const phase=obBuild(view);obShow(view,phase);render()}
+async function obPull(){
+  try{const r=await obCall({action:'state',match_id:OB.mid});
+    if(r.waiting){$('detail').textContent='Waiting for an opponent. Invite code: '+r.code;return}
+    obRenderAll(r.view);
+  }catch(e){$('detail').textContent='Connection error: '+e.message}
+}
+async function obSend(move){
+  try{const r=await obCall({action:'play',match_id:OB.mid,move});obRenderAll(r.view)}
+  catch(e){$('detail').textContent='Not allowed: '+e.message;render()}
+}
+function obPlay(){const s=G.sel;if(s.c==null||s.a==null)return;obSend({type:'play',c:s.c,a:s.a,s:s.s,rep:G.P.rep})}
+function obSac(){obSend({type:'sacrifice',idx:[...G.sacSel]})}
+function obCharge(i){obSend({type:'charge',c:i})}
+function obDouble(){obSend({type:'double'})}
+window.openMatch=async function(id){
+  OB.mid=id;
+  try{const list=await obCall({action:'my_matches'});const m=list.matches.find(x=>x.id===id);OB.world=m?m.world:'naruto'}catch(e){OB.world='naruto'}
+  obSetWorld(OB.world); G=null; OB.key='';
+  $('lobby').classList.add('hide');$('match').classList.add('hide');$('start').classList.add('hide');$('end').classList.add('hide');
+  ac(); clearInterval(OB.timer);
+  await obPull();
+  OB.timer=setInterval(obPull,1500);
+  music(OB.world);
+};
+$('again').onclick=()=>{clearInterval(OB.timer);document.body.classList.remove('ingame');$('end').classList.add('hide');$('lobby').classList.remove('hide')};
 </script>
 </body>
 </html>
