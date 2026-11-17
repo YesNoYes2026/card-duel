@@ -692,6 +692,7 @@ function render(){
     }
     row(V.phase==='atk'?'Attack':'Defend',()=>send({type:'play',c:sel.c,a:sel.a,s:sel.s}),sel.c==null||sel.a==null);
   }
+  $('mDebug').textContent+=' | drawn: my team '+$('myTeam').children.length+', opp '+$('oppTeam').children.length+', actions '+$('myActs').children.length;
   // log
   $('mLog').textContent='';
   (V.log||[]).slice().reverse().forEach(l=>{const d=document.createElement('div');d.textContent=l;$('mLog').append(d)});
