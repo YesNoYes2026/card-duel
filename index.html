@@ -200,6 +200,12 @@ body.lc .t .nm{overflow-wrap:normal!important;word-break:normal}
 
 button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 </style>
+<style>
+#auth input{display:block;width:100%;margin:6px 0;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surf2);color:var(--ink);font:inherit;box-sizing:border-box}
+#auth .err{color:var(--warn);min-height:16px;font-size:12px;margin:6px 0}
+#auth .go2{width:100%;margin-top:8px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="wrap">
@@ -228,8 +234,19 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <button class="pw hide" id="pwBonus">Attack twice</button>
   <button class="go" id="go" disabled>Attack</button>
 </div></div>
+<div class="ov" id="auth" style="display:none;align-items:center;justify-content:center"><div class="card" style="width:100%;max-width:340px">
+  <h1>Card Duel</h1>
+  <p id="authTitle">Sign in to play</p>
+  <input id="authUser" placeholder="Username (3–20 letters, numbers or _)" autocomplete="username" style="display:none">
+  <input id="authEmail" type="email" placeholder="Email" autocomplete="email">
+  <input id="authPass" type="password" placeholder="Password (at least 6 characters)" autocomplete="current-password">
+  <div class="err" id="authErr"></div>
+  <button class="mode go2" id="authGo"><b>Sign in</b></button>
+  <button class="linkbtn" id="authToggle" style="margin-top:10px">Create a new account</button>
+</div></div>
 <div class="ov intro" id="start"><div class="introIn">
   <img class="logo" src="Assets%201/img_2e52ec4f35.webp" alt="Card Duel">
+  <div style="text-align:center;font-size:12px;margin:4px 0">Signed in as <b id="whoami"></b> · <button class="linkbtn" id="authOut">Sign out</button></div>
   <img class="hdr" src="Assets%201/img_6cb4280ba8.webp" alt="Choose your world">
   <button class="world on" data-w="naruto" aria-label="Naruto world"><img src="Assets%203/img_c29226e0d2.webp" alt=""></button>
   <button class="world" data-w="football" aria-label="Football world"><img src="Assets%201/img_2ce04624b4.webp" alt=""></button>
@@ -499,6 +516,53 @@ $('again').onclick=()=>{stopMusic();document.body.classList.remove('ingame');$('
 $('zoom').onclick=()=>$('zoom').classList.add('hide');
 $('logBtn').onclick=()=>$('log').classList.toggle('open');$('logBtn2').onclick=()=>$('log').classList.toggle('open');muteIcon();$('muteBtn').onclick=()=>{MUTED=!MUTED;try{localStorage.setItem('cdMute',MUTED?'1':'0')}catch(e){}muteIcon();if(MUTED)stopMusic();else if(G&&!G.over)music(G.cfg.world||'naruto')};
 
+</script>
+<script>
+(function(){
+  const sb=supabase.createClient('https://tognuvvcrqlxxqeysqqg.supabase.co','sb_publishable_vXO1mQrhsLJefeiuRIaOWA_x_9dT-HT');
+  const $=id=>document.getElementById(id);
+  let mode='signin';
+  function showAuth(){ $('auth').style.display='flex'; $('start').classList.add('hide'); }
+  function hideAuth(){ $('auth').style.display='none'; $('start').classList.remove('hide'); }
+  function render(){
+    const up=mode==='signup';
+    $('authUser').style.display=up?'block':'none';
+    $('authTitle').textContent=up?'Create your account':'Sign in to play';
+    $('authGo').innerHTML='<b>'+(up?'Create account':'Sign in')+'</b>';
+    $('authToggle').textContent=up?'I already have an account':'Create a new account';
+    $('authPass').setAttribute('autocomplete',up?'new-password':'current-password');
+    $('authErr').textContent='';
+  }
+  $('authToggle').onclick=()=>{ mode=mode==='signup'?'signin':'signup'; render(); };
+  $('authGo').onclick=async()=>{
+    $('authErr').textContent='';
+    const email=$('authEmail').value.trim(), pass=$('authPass').value, user=$('authUser').value.trim();
+    if(!email||pass.length<6){ $('authErr').textContent='Enter an email and a password of at least 6 characters.'; return; }
+    if(mode==='signup'){
+      if(!/^[A-Za-z0-9_]{3,20}$/.test(user)){ $('authErr').textContent='Username: 3–20 letters, numbers or _.'; return; }
+      const r=await sb.auth.signUp({email,password:pass,options:{data:{username:user}}});
+      if(r.error){ $('authErr').textContent=r.error.message; return; }
+      if(r.data.session){
+        const p=await sb.from('profiles').insert({id:r.data.user.id,username:user});
+        if(p.error){ $('authErr').textContent=p.error.message; return; }
+      }
+    } else {
+      const r=await sb.auth.signInWithPassword({email,password:pass});
+      if(r.error){ $('authErr').textContent=r.error.message; return; }
+    }
+    await enter();
+  };
+  $('authOut').onclick=async()=>{ await sb.auth.signOut(); $('whoami').textContent=''; showAuth(); };
+  async function enter(){
+    const s=await sb.auth.getSession();
+    if(!s.data.session){ showAuth(); return; }
+    const p=await sb.from('profiles').select('username').eq('id',s.data.session.user.id).maybeSingle();
+    $('whoami').textContent=(p.data&&p.data.username)||s.data.session.user.email;
+    hideAuth();
+  }
+  render();
+  enter();
+})();
 </script>
 </body>
 </html>
