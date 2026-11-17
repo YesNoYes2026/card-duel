@@ -620,6 +620,7 @@ $('lobClose').onclick=()=>$('lobby').classList.add('hide');
 <h1>Online match</h1>
 <p id="mStatus" style="font-size:14px;font-weight:bold;min-height:18px"></p>
 <p id="mAtk" style="font-size:13px;min-height:16px"></p>
+<div id="mDebug" style="font-size:12px;background:#fff3cd;padding:6px;border-radius:6px;word-break:break-word;min-height:16px"></div>
 <h3>Opponent</h3><div id="oppTeam" style="font-size:13px"></div>
 <h3>Your team</h3><div id="myTeam"></div>
 <h3>Your actions</h3><div id="myActs"></div>
@@ -641,8 +642,8 @@ async function call(body){
 }
 function btn(label,on,fn){const b=document.createElement('button');b.className='pick'+(on?' on':'');b.textContent=label;b.onclick=fn;b.style.cssText='display:block;width:100%;text-align:left;padding:6px;border-radius:8px;font-size:13px;cursor:pointer';return b}
 window.openMatch=async function(id){MID=id;sel={c:null,a:null,s:null};sacSet=new Set();$('match').classList.remove('hide');clearInterval(timer);await pull();timer=setInterval(pull,2000)};
-async function pull(){try{const r=await call({action:'state',match_id:MID});if(r.waiting){$('mStatus').textContent='Waiting for an opponent. Invite code: '+r.code;return}V=r.view;try{render()}catch(e2){$('mStatus').textContent='Display error: '+e2.message}}catch(e){$('mStatus').textContent=e.message}}
-async function send(move){try{const r=await call({action:'play',match_id:MID,move});V=r.view;sel={c:null,a:null,s:null};sacSet=new Set();render()}catch(e){$('mStatus').textContent=e.message}}
+async function pull(){try{const r=await call({action:'state',match_id:MID});if(r.waiting){$('mStatus').textContent='Waiting for an opponent. Invite code: '+r.code;$('mDebug').textContent='Debug: waiting for second player';return}V=r.view;$('mDebug').textContent='Debug: data received. Your cards: '+(V.you&&V.you.team?V.you.team.length:'none')+', opponent cards: '+(V.opp&&V.opp.team?V.opp.team.length:'none')+', phase: '+V.phase;try{render()}catch(e2){$('mStatus').textContent='Display error: '+e2.message;$('mDebug').textContent='Display error: '+e2.message}}catch(e){$('mStatus').textContent=e.message;$('mDebug').textContent='Error: '+e.message}}
+async function send(move){try{const r=await call({action:'play',match_id:MID,move});V=r.view;sel={c:null,a:null,s:null};sacSet=new Set();$('mDebug').textContent='Debug: move sent';render()}catch(e){$('mStatus').textContent=e.message;$('mDebug').textContent='Move error: '+e.message}}
 function render(){
   if(!V)return;
   const me=V.side;
