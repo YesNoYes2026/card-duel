@@ -247,6 +247,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 <div class="ov intro" id="start"><div class="introIn">
   <img class="logo" src="Assets%201/img_2e52ec4f35.webp" alt="Card Duel">
   <div style="text-align:center;font-size:12px;margin:4px 0">Signed in as <b id="whoami"></b> · <button class="linkbtn" id="authOut">Sign out</button></div>
+  <div style="text-align:center;margin:6px 0"><button class="mode" id="onlineBtn" style="width:auto;padding:6px 14px"><b>Online play</b></button></div>
   <img class="hdr" src="Assets%201/img_6cb4280ba8.webp" alt="Choose your world">
   <button class="world on" data-w="naruto" aria-label="Naruto world"><img src="Assets%203/img_c29226e0d2.webp" alt=""></button>
   <button class="world" data-w="football" aria-label="Football world"><img src="Assets%201/img_2ce04624b4.webp" alt=""></button>
@@ -520,6 +521,7 @@ $('logBtn').onclick=()=>$('log').classList.toggle('open');$('logBtn2').onclick=(
 <script>
 (function(){
   const sb=supabase.createClient('https://tognuvvcrqlxxqeysqqg.supabase.co','sb_publishable_vXO1mQrhsLJefeiuRIaOWA_x_9dT-HT');
+  window.CDsb=sb;
   const $=id=>document.getElementById(id);
   let mode='signin';
   function showAuth(){ $('auth').style.display='flex'; $('start').classList.add('hide'); }
@@ -562,6 +564,55 @@ $('logBtn').onclick=()=>$('log').classList.toggle('open');$('logBtn2').onclick=(
   }
   render();
   enter();
+})();
+</script>
+<div class="ov hide" id="lobby" style="align-items:center;justify-content:center"><div class="card" style="width:100%;max-width:380px;max-height:90vh;overflow:auto">
+<h1>Online</h1>
+<p id="lobMsg" style="font-size:13px;min-height:18px"></p>
+<h3>Add a friend</h3>
+<input id="findName" placeholder="Their username" style="width:100%;padding:8px;box-sizing:border-box">
+<button class="mode" id="findBtn"><b>Send request</b></button>
+<h3>Friend requests</h3><div id="incoming"></div>
+<h3>Friends</h3><div id="friends"></div>
+<h3>Invite code</h3>
+<button class="mode" id="codeBtn"><b>Create a code</b><span>Share it with someone</span></button>
+<input id="joinCode" placeholder="Enter a code" style="width:100%;padding:8px;box-sizing:border-box;margin-top:6px">
+<button class="mode" id="joinBtn"><b>Join</b></button>
+<h3>My matches</h3><div id="matches"></div>
+<button class="mode" id="lobClose"><b>Back</b></button>
+</div></div>
+<script>
+(function(){
+const sb=window.CDsb; const $=id=>document.getElementById(id);
+function say(t){$('lobMsg').textContent=t||''}
+async function call(body){
+  const {data,error}=await sb.functions.invoke('game',{body});
+  if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(e){}throw new Error(m)}
+  return data;
+}
+function row(text,buttons){const d=document.createElement('div');d.style.cssText='display:flex;gap:6px;align-items:center;justify-content:space-between;margin:4px 0;font-size:14px';const s=document.createElement('span');s.textContent=text;d.append(s);buttons.forEach(([label,fn])=>{const b=document.createElement('button');b.className='linkbtn';b.textContent=label;b.onclick=fn;d.append(b)});return d}
+const world=()=>(document.querySelector('.world.on')||{}).dataset?.w||'naruto';
+async function refresh(){
+  try{
+    const f=await call({action:'friends'});
+    $('incoming').textContent='';$('friends').textContent='';
+    f.incoming.forEach(p=>$('incoming').append(row(p.username,[['Accept',()=>respond(p.id,true)],['Decline',()=>respond(p.id,false)]])));
+    if(!f.incoming.length)$('incoming').textContent='None';
+    f.friends.forEach(p=>$('friends').append(row(p.username,[['Challenge',()=>challenge(p.id)]])));
+    if(!f.friends.length)$('friends').textContent='No friends yet';
+    const m=await call({action:'my_matches'});
+    $('matches').textContent='';
+    m.matches.forEach(x=>$('matches').append(row((x.code?'Code '+x.code:'Challenge')+' · '+x.status,[])));
+    if(!m.matches.length)$('matches').textContent='None';
+  }catch(e){say(e.message)}
+}
+async function respond(id,accept){try{await call({action:'friend_respond',user_id:id,accept});say(accept?'Friend added.':'Declined.');refresh()}catch(e){say(e.message)}}
+async function challenge(id){try{await call({action:'create_match',friend_id:id,world:world(),n:4,deck:'shared'});say('Challenge sent. Waiting for them to accept.');refresh()}catch(e){say(e.message)}}
+$('findBtn').onclick=async()=>{try{const r=await call({action:'find_user',username:$('findName').value.trim()});await call({action:'friend_request',user_id:r.user.id});say('Request sent to '+r.user.username+'.');$('findName').value='';refresh()}catch(e){say(e.message)}};
+$('codeBtn').onclick=async()=>{try{const r=await call({action:'create_match',world:world(),n:4,deck:'shared'});say('Your code: '+r.code+'. Waiting for someone to join.');refresh()}catch(e){say(e.message)}};
+$('joinBtn').onclick=async()=>{try{await call({action:'join',code:$('joinCode').value});say('Joined. The online board comes in the next step.');refresh()}catch(e){say(e.message)}};
+$('onlineBtn').onclick=()=>{$('lobby').classList.remove('hide');say('');refresh()};
+$('lobClose').onclick=()=>$('lobby').classList.add('hide');
 })();
 </script>
 </body>
