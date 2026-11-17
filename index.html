@@ -478,7 +478,7 @@ function _render(){if(!G)return;{const d=$('dir');d.textContent=G.att==='P'?'⟶
     b.innerHTML=`<div class="nm">${s.n}</div>${artDiv(s.n)}<div class="v">${lab}</div><div class="s">${sub}</div>`;if(BGC(s.n))bgHTML(b,s.n,{col:'#C9A227',top:s.n,mid:lab,bot:pills([sub])});else if(FC(s.n))fcHTML(b,s.n,(selCh&&H!=='none')||off?lab:'',/^[+]/.test(lab)?'':'txt');
     b.onclick=e=>{if(G.repMode)return toggleRep('S',i);if(!my||G.upMode)return;if(isRep)G.P.rep.S=null;G.sel.s=G.sel.s===i?null:i;render()};sr.appendChild(b)});
   // powers
-  const canSpend=G.phase==='patk'&&!G.lock&&G.P.pts>=NEED;$('pwUp').classList.toggle('hide',!canSpend||!G.P.team.some(t=>(t.ch||0)<2));$('repBtn').classList.toggle('hide',!my||!!G.online);$('repBtn').textContent=G.repMode?'Done':'Replace';$('repBtn').classList.toggle('on',!!G.repMode);document.body.classList.toggle('repmode',!!G.repMode);$('pwBonus').classList.toggle('hide',!canSpend||G.bonus.P);
+  const canSpend=G.phase==='patk'&&!G.lock&&G.P.pts>=NEED;$('pwUp').classList.toggle('hide',!canSpend||!G.P.team.some(t=>(t.ch||0)<2));$('repBtn').classList.toggle('hide',!my);$('repBtn').textContent=G.repMode?'Done':'Replace';$('repBtn').classList.toggle('on',!!G.repMode);document.body.classList.toggle('repmode',!!G.repMode);$('pwBonus').classList.toggle('hide',!canSpend||G.bonus.P);
   $('deckInfo').textContent=G.cfg.deck==='personal'?'Personal decks':'Decks '+G.deck.C.length+'/'+G.deck.A.length+'/'+G.deck.S.length;
   const go=$('go');
   if(sac){const sum=[...G.sacSel].reduce((x,i)=>x+G.P.team[i].s,0);$('tot').textContent=sum+' / '+G.gap;$('totL').textContent=SL+' sacrificed';go.disabled=sum<G.gap;go.onclick=G.online?obSac:confirmSac;return}
@@ -746,6 +746,10 @@ function obShow(view,phase){
     :phase==='psac'?'Gap '+view.gap+': choose who to sacrifice'
     :'Opponent’s turn';
   $('phase').textContent=status;
+  const attacking=(phase==='patk'||phase==='pdef'||phase==='psac')||(!view.over&&(view.phase==='atk'||view.phase==='def'));
+  const mine=view.att===me;
+  $('numP').textContent=(attacking&&mine)?view.atkVal:(attacking&&!mine?'–':'–');
+  $('numAI').textContent=(attacking&&!mine)?view.atkVal:'–';
   $('detail').textContent=phase==='patk'?'Pick a character, an action card and (optionally) a special.'
     :phase==='pdef'?'Match the attack to block.':'';
   $('log').innerHTML='';
@@ -777,7 +781,17 @@ window.openMatch=async function(id){
   OB.timer=setInterval(obPull,1500);
   music(OB.world);
 };
-$('again').onclick=()=>{clearInterval(OB.timer);document.body.classList.remove('ingame');$('end').classList.add('hide');$('lobby').classList.remove('hide')};
+function obExit(){
+  clearInterval(OB.timer); OB.mid=null; G=null; OB.key='';
+  document.body.classList.remove('ingame');
+  $('end').classList.add('hide'); $('lobby').classList.add('hide'); $('match').classList.add('hide');
+  $('start').classList.remove('hide');
+}
+window.obExit=obExit;
+$('again').innerHTML='<b>Back to the main page</b>';
+$('again').onclick=obExit;
+$('lobClose').onclick=()=>{obExit()};
+$('mBack').onclick=()=>{obExit()};
 </script>
 </body>
 </html>
