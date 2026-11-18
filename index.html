@@ -661,7 +661,10 @@ async function call(body){
 function logo(w,px){const i=document.createElement('img');i.src=LOGO[w]||'';i.width=px||28;i.height=px||28;i.alt=w;i.style.cssText='border-radius:8px;display:block';return i}
 function btn(label,cls,fn){const b=document.createElement('button');b.className='pill '+(cls||'');b.textContent=label;b.onclick=fn;return b}
 function renderWorldRow(){const r=$('worldRow');r.textContent='';['naruto','football','wwe'].forEach(w=>{const b=document.createElement('button');b.className='wbtn'+(w===LW?' on':'');b.append(logo(w,44));b.onclick=()=>{LW=w;renderWorldRow()};r.append(b)})}
-function reqRow(p){const d=document.createElement('div');d.className='frow';const n=document.createElement('span');n.textContent=p.username;const r=document.createElement('span');r.className='fr';r.append(btn('\u2713','tick',()=>respond(p.id,true)),btn('\u2715','cross',()=>respond(p.id,false)));d.append(n,r);return d}
+const TICK='<svg width="22" height="22" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CROSS='<svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
+function iconBtn(svg,cls,fn){const b=document.createElement('button');b.className='pill '+cls;b.innerHTML=svg;b.onclick=fn;return b}
+function reqRow(p){const d=document.createElement('div');d.className='frow';const n=document.createElement('span');n.textContent=p.username;const r=document.createElement('span');r.className='fr';r.append(iconBtn(TICK,'tick',()=>respond(p.id,true)),iconBtn(CROSS,'cross',()=>respond(p.id,false)));d.append(n,r);return d}
 function friendRow(p){const d=document.createElement('div');d.className='frow';const n=document.createElement('span');n.textContent=p.username;if(p.busy){const bz=document.createElement('span');bz.className='busy';bz.textContent='busy';n.append(bz)}
   const r=document.createElement('span');r.className='fr';
   if(p.challenge){r.append(logo(p.challenge.world,28),btn('Accept','',()=>acceptMatch(p.challenge.match_id)))}
