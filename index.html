@@ -201,6 +201,8 @@ body.lc .t .nm{overflow-wrap:normal!important;word-break:normal}
 #end.ov{background:rgba(5,8,25,.6)}
 
 button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.duel{gap:2px}.side{gap:4px;min-width:0}.hitart{width:38px;height:38px}.num{font-size:24px;min-width:24px}
+.opp .mini{flex:none}.opp .mini .n{display:inline-block;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
 </style>
 <style>
 #auth input{display:block;width:100%;margin:6px 0;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--surf2);color:var(--ink);font:inherit;box-sizing:border-box}
@@ -764,7 +766,7 @@ function obShow(view,phase){
     :phase==='pdef'?'Match the attack to block.':'';
   $('log').innerHTML='';
   (view.log||[]).slice().reverse().forEach(l=>{const d=document.createElement('div');d.textContent=l;$('log').append(d)});
-  if(view.over){clearInterval(OB.timer);$('endT').textContent=view.winner===me?'You win':'Opponent wins';$('endP').textContent='Match over.';$('end').classList.remove('hide')}
+  if(view.over){clearInterval(OB.timer);if(!OB.endPlayed){OB.endPlayed=true;stopMusic();sfx(OB.world||'naruto','e',.9)};$('endT').textContent=view.winner===me?'You win':'Opponent wins';$('endP').textContent='Match over.';$('end').classList.remove('hide')}
 }
 function obRenderAll(view){const phase=obBuild(view);obShow(view,phase);render()}
 async function obPull(){
@@ -786,10 +788,10 @@ window.openMatch=async function(id){
   try{const list=await obCall({action:'my_matches'});const m=list.matches.find(x=>x.id===id);OB.world=m?m.world:'naruto'}catch(e){OB.world='naruto'}
   obSetWorld(OB.world); G=null; OB.key='';
   $('lobby').classList.add('hide');$('match').classList.add('hide');$('start').classList.add('hide');$('end').classList.add('hide');
-  ac(); clearInterval(OB.timer); clearInterval(OB.tick);
+  ac(); clearInterval(OB.timer); clearInterval(OB.tick); stopMusic(); OB.endPlayed=false;
   await obPull();
   OB.timer=setInterval(obPull,1500); OB.tick=setInterval(obTick,250);
-  music(OB.world);
+  sfx(OB.world,'s',.9,()=>{if(!OB.endPlayed)music(OB.world)});
 };
 async function obLeave(){
   if(!OB.mid){obExit();return}
@@ -798,7 +800,7 @@ async function obLeave(){
   obExit();
 }
 function obExit(){
-  clearInterval(OB.timer); clearInterval(OB.tick); OB.mid=null; G=null; OB.key=''; OB.deadline=0;
+  stopMusic(); clearInterval(OB.timer); clearInterval(OB.tick); OB.mid=null; G=null; OB.key=''; OB.deadline=0;
   document.body.classList.remove('ingame');
   $('end').classList.add('hide'); $('lobby').classList.add('hide'); $('match').classList.add('hide');
   $('start').classList.remove('hide');
