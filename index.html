@@ -440,7 +440,7 @@ $('pwBonus').onclick=()=>{if(G.online){obDouble();return}if(G.phase!=='patk'||G.
 function pts(el,n){const full=Math.floor(n/NEED),part=n%NEED,R=13,C=2*Math.PI*R,seg=C/NEED;let arcs='';
   for(let i=0;i<NEED;i++)arcs+=`<circle cx="16" cy="16" r="${R}" fill="none" stroke="${i<part?'var(--gold)':'var(--line)'}" stroke-width="4" stroke-dasharray="${seg-2.5} ${C-seg+2.5}" stroke-dashoffset="${-i*seg}" transform="rotate(-90 16 16)"/>`;
   el.innerHTML=`<svg viewBox="0 0 32 32" width="34" height="34" aria-label="${full} Boost, ${part} of ${NEED} towards the next">${arcs}<text x="16" y="20.5" text-anchor="middle" font-size="12" font-weight="800" fill="${full?'var(--gold)':'var(--mut)'}" font-family="Poppins,sans-serif">${full}</text></svg>`}
-function arrowSync(){const go=$('go'),d=$('dir');if(!G||!go||!d)return;go.style.display='none';d.textContent=go.textContent;d.classList.toggle('dis',!!go.disabled);d.onclick=()=>{if(!go.disabled&&go.onclick)go.onclick()}}
+function arrowSync(){const go=$('go'),d=$('dir');if(!G||!go||!d)return;go.style.display='';d.textContent=G.phase==='patk'?'Attack':G.phase==='pdef'?'Defend':G.phase==='psac'?'Sacrifice':'Opponent';d.classList.add('ind');d.classList.remove('dis');d.onclick=null}
 function render(){_render();if(G){requestAnimationFrame(fitText);arrowSync()}}
 function _render(){if(!G)return;{const d=$('dir');d.textContent=G.att==='P'?'⟶':'⟵';d.className='dir '+(G.att==='P'?'me':'them')}const H=G.cfg.calc==='on'?'semi':'none',my=(G.phase==='patk'||G.phase==='pdef')&&!G.lock,sac=G.phase==='psac';
   const ot=$('oppTeam');ot.innerHTML='';G.AI.team.forEach(ch=>{ot.insertAdjacentHTML('beforeend',`<span class="mini"><span class="ico" style="background:${ECOL[ch.e]}">${ICON[ch.e]}</span><span class="n">${ch.n}</span><b>${ch.s}</b>${ch.ch?'<span class="star">'+'★'.repeat(ch.ch)+'</span>':''}</span>`)});
@@ -586,7 +586,7 @@ $('logBtn').onclick=()=>$('log').classList.toggle('open');$('logBtn2').onclick=(
 <script>
 (function(){
 const sb=window.CDsb; const $=id=>document.getElementById(id);
-function say(t){$('lobMsg').textContent=t||''}
+function say(t){const e=$('lobMsg');e.textContent=t||'';if(t)e.scrollIntoView({block:'center',behavior:'smooth'})}
 async function call(body){
   const {data,error}=await sb.functions.invoke('game',{body});
   if(error){let m=error.message;try{const j=await error.context.json();m=j.error||m}catch(e){}throw new Error(m)}
@@ -604,11 +604,12 @@ async function refresh(){
     if(!f.friends.length)$('friends').textContent='No friends yet';
     const m=await call({action:'my_matches'});
     $('matches').textContent='';
-    m.matches.forEach(x=>$('matches').append(row((x.code?'Code '+x.code:'Challenge')+' · '+x.status,[['Open',()=>window.openMatch(x.id)]])));
+    m.matches.forEach(x=>{const btns=(!x.mine&&x.status==='waiting')?[['Accept',()=>acceptMatch(x.id)]]:[['Open',()=>window.openMatch(x.id)]];$('matches').append(row((x.code?'Code '+x.code:'Challenge')+' · '+(x.mine?x.status:'invite'),btns))});
     if(!m.matches.length)$('matches').textContent='None';
   }catch(e){say(e.message)}
 }
 async function respond(id,accept){try{await call({action:'friend_respond',user_id:id,accept});say(accept?'Friend added.':'Declined.');refresh()}catch(e){say(e.message)}}
+async function acceptMatch(id){try{const r=await call({action:'join',match_id:id});say('Joined.');refresh();window.openMatch(r.match_id||id)}catch(e){say(e.message)}}
 async function challenge(id){try{await call({action:'create_match',friend_id:id,world:world(),n:4,deck:'shared'});say('Challenge sent. Waiting for them to accept.');refresh()}catch(e){say(e.message)}}
 $('findBtn').onclick=async()=>{try{const r=await call({action:'find_user',username:$('findName').value.trim()});await call({action:'friend_request',user_id:r.user.id});say('Request sent to '+r.user.username+'.');$('findName').value='';refresh()}catch(e){say(e.message)}};
 $('codeBtn').onclick=async()=>{try{const r=await call({action:'create_match',world:world(),n:4,deck:'shared'});say('Your code: '+r.code+'. Waiting for someone to join.');refresh();window.openMatch(r.match_id)}catch(e){say(e.message)}};
@@ -785,6 +786,12 @@ window.openMatch=async function(id){
   OB.timer=setInterval(obPull,1500); OB.tick=setInterval(obTick,250);
   music(OB.world);
 };
+async function obLeave(){
+  if(!OB.mid){obExit();return}
+  if(!confirm('Leave this match? It ends for both players.'))return;
+  try{await obCall({action:'forfeit',match_id:OB.mid})}catch(e){}
+  obExit();
+}
 function obExit(){
   clearInterval(OB.timer); clearInterval(OB.tick); OB.mid=null; G=null; OB.key=''; OB.deadline=0;
   document.body.classList.remove('ingame');
@@ -792,6 +799,8 @@ function obExit(){
   $('start').classList.remove('hide');
 }
 window.obExit=obExit;
+$('logBtn').textContent='Exit';$('logBtn').onclick=obLeave;
+$('logBtn2').textContent='Exit';$('logBtn2').onclick=obLeave;
 $('again').innerHTML='<b>Back to the main page</b>';
 $('again').onclick=obExit;
 $('lobClose').onclick=()=>{obExit()};
