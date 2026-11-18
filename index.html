@@ -238,7 +238,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <button class="pw hide" id="pwBonus">Attack twice</button>
   <button class="go" id="go" disabled>Attack</button>
 </div></div>
-<div class="ov" id="auth" style="display:none;align-items:center;justify-content:center"><div class="card" style="width:100%;max-width:340px">
+<div class="ov intro" id="auth" style="display:none;align-items:center;justify-content:center"><div class="card" style="width:100%;max-width:340px">
   <h1>Card Duel</h1>
   <p id="authTitle">Sign in to play</p>
   <input id="authUser" placeholder="Username (3–20 letters, numbers or _)" autocomplete="username" style="display:none">
@@ -247,6 +247,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   <div class="err" id="authErr"></div>
   <button class="mode go2" id="authGo"><b>Sign in</b></button>
   <button class="linkbtn" id="authToggle" style="margin-top:10px">Create a new account</button>
+  <button class="mode" id="guestBtn" style="margin-top:8px"><b>Play as a guest</b></button>
 </div></div>
 <div class="ov intro" id="start"><div class="introIn">
   <img class="logo" src="Assets%201/img_2e52ec4f35.webp" alt="Card Duel">
@@ -560,6 +561,15 @@ $('logBtn').onclick=()=>$('log').classList.toggle('open');$('logBtn2').onclick=(
     }
     await enter();
   };
+  $('guestBtn').onclick=async()=>{
+    $('authErr').textContent='';
+    const r=await sb.auth.signInAnonymously();
+    if(r.error){ $('authErr').textContent=r.error.message; return; }
+    const name='guest'+Math.floor(100000+Math.random()*900000);
+    const p=await sb.from('profiles').insert({id:r.data.user.id,username:name});
+    if(p.error){ $('authErr').textContent=p.error.message; return; }
+    await enter();
+  };
   $('authOut').onclick=async()=>{ await sb.auth.signOut(); $('whoami').textContent=''; showAuth(); };
   async function enter(){
     const s=await sb.auth.getSession();
@@ -605,6 +615,21 @@ $('logBtn').onclick=()=>$('log').classList.toggle('open');$('logBtn2').onclick=(
 #lobby .idle{color:#C9D2EA !important}
 #lobby .sub,#lobby .busy{color:#F5B83D !important}
 #lobby .pill:disabled{opacity:.4 !important}
+#lobby *{-webkit-text-fill-color:#fff !important;opacity:1 !important}
+#lobby .pub{-webkit-text-fill-color:#3fcf6a !important}
+#lobby .idle{-webkit-text-fill-color:#C9D2EA !important}
+#lobby .sub,#lobby .busy{-webkit-text-fill-color:#F5B83D !important}
+#lobby .pill.tick{-webkit-text-fill-color:#3fcf6a !important}
+#lobby .pill.cross{-webkit-text-fill-color:#ff5a5a !important}
+#lobby h1,#lobby h3{text-shadow:none !important}
+</style>
+<style>
+#auth .card{background:rgba(8,12,40,.94);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:18px}
+#auth h1,#auth p,#auth .err{color:#fff !important;-webkit-text-fill-color:#fff !important}
+#auth input{width:100%;box-sizing:border-box;padding:10px;margin:6px 0;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff}
+#auth input::placeholder{color:#C9D2EA}
+#auth .linkbtn{color:#F5B83D !important}
+#auth .mode{background:#2a4a9a;color:#fff;border-color:rgba(255,255,255,.3)}
 </style>
 <div class="ov intro hide" id="lobby"><div style="max-width:380px;margin:0 auto">
 <h1 style="color:#fff;margin:0 0 6px">Online</h1>
