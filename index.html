@@ -214,13 +214,13 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
     <div class="duel">
       <div class="side" id="sideP"><span class="who">YOU</span><div class="hitart" id="artP"></div><div class="num" id="numP">–</div><span class="pts" id="ptsP"></span></div>
       <div class="dir me" id="dir">⟶</div>
-      <div class="side" id="sideAI"><span class="who">RYO</span><div class="hitart" id="artAI"></div><div class="num" id="numAI">–</div><span class="pts" id="ptsA"></span></div>
+      <div class="side" id="sideAI"><span class="who" id="oppName">RYO</span><div class="hitart" id="artAI"></div><div class="num" id="numAI">–</div><span class="pts" id="ptsA"></span></div>
     </div>
     <div class="meta clonly"><button class="linkbtn" id="logBtn">Log</button> · <span id="deckInfo" style="font-size:10.5px"></span></div>
     <div class="timer" id="timer"><i id="timerFill"></i></div>
     <div class="log" id="log"></div>
   </div>
-  <div class="lbl"><span id="teamL">Your team</span><span>Replace: 1 per row</span></div>
+  <div class="lbl" style="display:none"><span id="teamL"></span></div>
   <div class="grid" id="myTeam"></div>
   <div class="lbl"><span>Actions</span></div>
   <div class="grid" id="myActs"></div>
@@ -440,7 +440,8 @@ $('pwBonus').onclick=()=>{if(G.online){obDouble();return}if(G.phase!=='patk'||G.
 function pts(el,n){const full=Math.floor(n/NEED),part=n%NEED,R=13,C=2*Math.PI*R,seg=C/NEED;let arcs='';
   for(let i=0;i<NEED;i++)arcs+=`<circle cx="16" cy="16" r="${R}" fill="none" stroke="${i<part?'var(--gold)':'var(--line)'}" stroke-width="4" stroke-dasharray="${seg-2.5} ${C-seg+2.5}" stroke-dashoffset="${-i*seg}" transform="rotate(-90 16 16)"/>`;
   el.innerHTML=`<svg viewBox="0 0 32 32" width="34" height="34" aria-label="${full} Boost, ${part} of ${NEED} towards the next">${arcs}<text x="16" y="20.5" text-anchor="middle" font-size="12" font-weight="800" fill="${full?'var(--gold)':'var(--mut)'}" font-family="Poppins,sans-serif">${full}</text></svg>`}
-function render(){_render();if(G){requestAnimationFrame(fitText);bindZoom()}}
+function arrowSync(){const go=$('go'),d=$('dir');if(!G||!go||!d)return;go.style.display='none';d.textContent=go.textContent;d.classList.toggle('dis',!!go.disabled);d.onclick=()=>{if(!go.disabled&&go.onclick)go.onclick()}}
+function render(){_render();if(G){requestAnimationFrame(fitText);arrowSync()}}
 function _render(){if(!G)return;{const d=$('dir');d.textContent=G.att==='P'?'⟶':'⟵';d.className='dir '+(G.att==='P'?'me':'them')}const H=G.cfg.calc==='on'?'semi':'none',my=(G.phase==='patk'||G.phase==='pdef')&&!G.lock,sac=G.phase==='psac';
   const ot=$('oppTeam');ot.innerHTML='';G.AI.team.forEach(ch=>{ot.insertAdjacentHTML('beforeend',`<span class="mini"><span class="ico" style="background:${ECOL[ch.e]}">${ICON[ch.e]}</span><span class="n">${ch.n}</span><b>${ch.s}</b>${ch.ch?'<span class="star">'+'★'.repeat(ch.ch)+'</span>':''}</span>`)});
   pts($('ptsP'),G.P.pts);pts($('ptsA'),G.AI.pts);
@@ -467,7 +468,7 @@ function _render(){if(!G)return;{const d=$('dir');d.textContent=G.att==='P'?'⟶
     b.onclick=e=>{if(G.repMode)return toggleRep('A',i);if(!my||G.upMode)return;if(isRep)G.P.rep.A=null;G.sel.a=G.sel.a===i?null:i;render()};ar.appendChild(b)});
   const sr=$('mySpecs');sr.style.setProperty('--n',G.cfg.n);sr.innerHTML='';
   G.P.specs.forEach((s,i)=>{const b=document.createElement('button');if(!s){b.className='t spc';b.disabled=true;sr.appendChild(b);return}
-    const isRep=G.P.rep.S===i;let lab=s.k==='add'?'+'+s.v:s.k==='swap'?'Swap':'Revive',sub=s.k==='add'?'if usable':'a character',off=false;
+    const isRep=G.P.rep.S===i;let lab=s.k==='add'?'+'+s.v:s.k==='swap'?'Swap':'Revive',sub=s.k==='add'?(()=>{const u=G.P.team.filter(t=>specInfo(t,s,G.P.team).ok);return u.length===0?'Nobody can use':u.length===G.P.team.length?'Whole team can use':u.map(t=>t.n).join(', ')+' can use'})():'a character',off=false;
     const dead=G.cfg.dead==='on';
     if(s.k!=='add'){sub=utilOK('P',s)?(G.P.free?'used this turn':'play before your turn'):(dead?'Dead – burn +1':'burn +1 if unusable');off=dead&&!utilOK('P',s)}
     else{const users=G.P.team.filter(t=>specInfo(t,s,G.P.team).ok).map(t=>t.n);
@@ -483,8 +484,8 @@ function _render(){if(!G)return;{const d=$('dir');d.textContent=G.att==='P'?'⟶
   const go=$('go');
   if(sac){const sum=[...G.sacSel].reduce((x,i)=>x+G.P.team[i].s,0);$('tot').textContent=sum+' / '+G.gap;$('totL').textContent=SL+' sacrificed';go.disabled=sum<G.gap;go.onclick=G.online?obSac:confirmSac;return}
   const us=G.sel.s!=null?G.P.specs[G.sel.s]:null;
-  if(!G.online&&my&&us&&us.k!=='add'&&G.sel.a==null&&utilOK('P',us)&&!G.P.free){const can=us.k==='revive'||G.sel.c!=null;go.textContent=us.k==='revive'?'Revive':'Swap';go.disabled=!can;$('tot').textContent='–';$('totL').textContent=us.k==='revive'?'Add a new character':(G.sel.c!=null?'Swap out '+G.P.team[G.sel.c].n:'Pick who leaves');
-    go.onclick=()=>{if(!can)return;const ci=G.sel.c;useUtil('P',G.sel.s,ci);G.sel={c:null,a:null,s:null};go.textContent=G.phase==='patk'?'Attack':'Defend';render()};return}
+  if(my&&us&&us.k!=='add'&&G.sel.a==null&&utilOK('P',us)&&!G.P.free){const can=us.k==='revive'||G.sel.c!=null;go.textContent=us.k==='revive'?'Revive':'Swap';go.disabled=!can;$('tot').textContent='–';$('totL').textContent=us.k==='revive'?'Add a new character':(G.sel.c!=null?'Swap out '+G.P.team[G.sel.c].n:'Pick who leaves');
+    go.onclick=()=>{if(!can)return;const ci=G.sel.c;if(G.online){obSend({type:'util',si:G.sel.s,ci:ci});return}useUtil('P',G.sel.s,ci);G.sel={c:null,a:null,s:null};go.textContent=G.phase==='patk'?'Attack':'Defend';render()};return}
   go.textContent=G.phase==='pdef'?'Defend':'Attack';
   const ready=my&&G.sel.c!=null&&G.sel.a!=null&&G.P.team[G.sel.c]&&G.P.acts[G.sel.a];
   $('tot').textContent=ready?(H==='none'?'?':impact('P',G.sel.c,G.sel.a,G.sel.s)):'–';go.disabled=!ready;go.onclick=G.online?obPlay:confirmPlay;
@@ -704,7 +705,8 @@ $('mBack').onclick=()=>{clearInterval(timer);$('match').classList.add('hide');};
 
 <script>
 // ===== Online bridge: feeds the server's match into the offline board =====
-const OB={mid:null,world:'naruto',timer:null,key:''};
+const OB={mid:null,world:'naruto',timer:null,tick:null,key:'',deadline:0,total:60000};
+function obTick(){if(!OB.deadline||!G||G.over)return;const rem=Math.max(0,OB.deadline-Date.now());$('timerFill').style.width=(rem/OB.total*100)+'%';$('timer').classList.toggle('low',rem<15000)}
 function obSetWorld(world){
   const W=WORLDS[world]; D=W.D; ART=W.ART; FULL=FULLART[world]||{}; BG={};
   (BGOK[world]||[]).forEach(n=>{if(W.ART[n])BG[n]=W.ART[n]});
@@ -741,11 +743,13 @@ function obBuild(view){
 }
 function obShow(view,phase){
   const me=view.side;
+  $('oppName').textContent=((view.names&&view.names.opp)||'Opp').slice(0,3);
   const status=view.over?('Match over. '+(view.winner===me?'You win!':'Opponent wins.'))
-    :phase==='patk'?'Your attack':phase==='pdef'?'Defend against '+view.atkVal
+    :phase==='patk'?'Your attack'+(view.again?' (AGAIN)':''):phase==='pdef'?'Defend against '+view.atkVal
     :phase==='psac'?'Gap '+view.gap+': choose who to sacrifice'
-    :'Opponent’s turn';
+    :'Opponent’s turn'+(view.again&&view.phase==='atk'?' (AGAIN)':'');
   $('phase').textContent=status;
+  OB.deadline=Date.now()+(view.left||0); OB.total=view.turnMs||60000; obTick();
   const attacking=(phase==='patk'||phase==='pdef'||phase==='psac')||(!view.over&&(view.phase==='atk'||view.phase==='def'));
   const mine=view.att===me;
   $('numP').textContent=(attacking&&mine)?view.atkVal:(attacking&&!mine?'–':'–');
@@ -776,13 +780,13 @@ window.openMatch=async function(id){
   try{const list=await obCall({action:'my_matches'});const m=list.matches.find(x=>x.id===id);OB.world=m?m.world:'naruto'}catch(e){OB.world='naruto'}
   obSetWorld(OB.world); G=null; OB.key='';
   $('lobby').classList.add('hide');$('match').classList.add('hide');$('start').classList.add('hide');$('end').classList.add('hide');
-  ac(); clearInterval(OB.timer);
+  ac(); clearInterval(OB.timer); clearInterval(OB.tick);
   await obPull();
-  OB.timer=setInterval(obPull,1500);
+  OB.timer=setInterval(obPull,1500); OB.tick=setInterval(obTick,250);
   music(OB.world);
 };
 function obExit(){
-  clearInterval(OB.timer); OB.mid=null; G=null; OB.key='';
+  clearInterval(OB.timer); clearInterval(OB.tick); OB.mid=null; G=null; OB.key=''; OB.deadline=0;
   document.body.classList.remove('ingame');
   $('end').classList.add('hide'); $('lobby').classList.add('hide'); $('match').classList.add('hide');
   $('start').classList.remove('hide');
@@ -793,5 +797,6 @@ $('again').onclick=obExit;
 $('lobClose').onclick=()=>{obExit()};
 $('mBack').onclick=()=>{obExit()};
 </script>
+<style>#phase,#detail,#totL{display:none !important}</style>
 </body>
 </html>
