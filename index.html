@@ -172,7 +172,9 @@ body{background:#0d1230;color:#fff}
 .hitart{width:46px;height:46px;border-radius:10px;background:rgba(255,255,255,.08) center/cover no-repeat;border:2px solid rgba(255,255,255,.18);flex:none}
 .hitart.on{border-color:#F5B83D;box-shadow:0 0 12px rgba(245,184,61,.6)}
 .num{font-size:30px;font-weight:800;min-width:34px;text-align:center}
-.dir{font-size:26px;font-weight:800;color:#F5B83D}
+.dir{font-size:11px;font-weight:700;color:#F5B83D;white-space:nowrap;letter-spacing:.3px;line-height:1.1;max-width:70px;text-align:center}
+.opp .minis{min-width:0;overflow:hidden;white-space:nowrap}
+.oppR{min-width:0;flex:1 1 auto;overflow:hidden}
 .dir.them{color:#8FB4FF}
 body.lc .arena{display:block;padding:8px 10px}
 body.lc .arena .timer{margin-top:8px}
@@ -440,7 +442,7 @@ $('pwBonus').onclick=()=>{if(G.online){obDouble();return}if(G.phase!=='patk'||G.
 function pts(el,n){const full=Math.floor(n/NEED),part=n%NEED,R=13,C=2*Math.PI*R,seg=C/NEED;let arcs='';
   for(let i=0;i<NEED;i++)arcs+=`<circle cx="16" cy="16" r="${R}" fill="none" stroke="${i<part?'var(--gold)':'var(--line)'}" stroke-width="4" stroke-dasharray="${seg-2.5} ${C-seg+2.5}" stroke-dashoffset="${-i*seg}" transform="rotate(-90 16 16)"/>`;
   el.innerHTML=`<svg viewBox="0 0 32 32" width="34" height="34" aria-label="${full} Boost, ${part} of ${NEED} towards the next">${arcs}<text x="16" y="20.5" text-anchor="middle" font-size="12" font-weight="800" fill="${full?'var(--gold)':'var(--mut)'}" font-family="Poppins,sans-serif">${full}</text></svg>`}
-function arrowSync(){const go=$('go'),d=$('dir');if(!G||!go||!d)return;go.style.display='';d.textContent=G.phase==='patk'?'Attack':G.phase==='pdef'?'Defend':G.phase==='psac'?'Sacrifice':'Opponent';d.classList.add('ind');d.classList.remove('dis');d.onclick=null}
+function arrowSync(){const go=$('go'),d=$('dir');if(!G||!go||!d)return;go.style.display='';const lab=G.phase==='patk'?'Attack':(G.phase==='pdef'||G.phase==='psac')?'Defend':'Wait';d.textContent=lab+' '+(G.att==='P'?'⟶':'⟵');d.classList.add('ind');d.classList.remove('dis');d.onclick=null}
 function render(){_render();if(G){requestAnimationFrame(fitText);arrowSync()}}
 function _render(){if(!G)return;{const d=$('dir');d.textContent=G.att==='P'?'⟶':'⟵';d.className='dir '+(G.att==='P'?'me':'them')}const H=G.cfg.calc==='on'?'semi':'none',my=(G.phase==='patk'||G.phase==='pdef')&&!G.lock,sac=G.phase==='psac';
   const ot=$('oppTeam');ot.innerHTML='';G.AI.team.forEach(ch=>{ot.insertAdjacentHTML('beforeend',`<span class="mini"><span class="ico" style="background:${ECOL[ch.e]}">${ICON[ch.e]}</span><span class="n">${ch.n}</span><b>${ch.s}</b>${ch.ch?'<span class="star">'+'★'.repeat(ch.ch)+'</span>':''}</span>`)});
@@ -605,12 +607,15 @@ async function refresh(){
     const m=await call({action:'my_matches'});
     $('matches').textContent='';
     m.matches.forEach(x=>{const btns=(!x.mine&&x.status==='waiting')?[['Accept',()=>acceptMatch(x.id)]]:[['Open',()=>window.openMatch(x.id)]];$('matches').append(row((x.code?'Code '+x.code:'Challenge')+' · '+(x.mine?x.status:'invite'),btns))});
+    if(WAITING_MID){const w=m.matches.find(x=>x.id===WAITING_MID);if(!w)WAITING_MID=null;else if(w.status==='active'){WAITING_MID=null;window.openMatch(w.id)}}
     if(!m.matches.length)$('matches').textContent='None';
   }catch(e){say(e.message)}
 }
 async function respond(id,accept){try{await call({action:'friend_respond',user_id:id,accept});say(accept?'Friend added.':'Declined.');refresh()}catch(e){say(e.message)}}
 async function acceptMatch(id){try{const r=await call({action:'join',match_id:id});say('Joined.');refresh();window.openMatch(r.match_id||id)}catch(e){say(e.message)}}
-async function challenge(id){try{await call({action:'create_match',friend_id:id,world:world(),n:4,deck:'shared'});say('Challenge sent. Waiting for them to accept.');refresh()}catch(e){say(e.message)}}
+let WAITING_MID=null;
+setInterval(()=>{if(WAITING_MID&&!$('lobby').classList.contains('hide'))refresh()},3000);
+async function challenge(id){try{const r=await call({action:'create_match',friend_id:id,world:world(),n:4,deck:'shared'});WAITING_MID=r.match_id||null;say('Challenge sent. Waiting for them to accept.');refresh()}catch(e){say(e.message)}}
 $('findBtn').onclick=async()=>{try{const r=await call({action:'find_user',username:$('findName').value.trim()});await call({action:'friend_request',user_id:r.user.id});say('Request sent to '+r.user.username+'.');$('findName').value='';refresh()}catch(e){say(e.message)}};
 $('codeBtn').onclick=async()=>{try{const r=await call({action:'create_match',world:world(),n:4,deck:'shared'});say('Your code: '+r.code+'. Waiting for someone to join.');refresh();window.openMatch(r.match_id)}catch(e){say(e.message)}};
 $('joinBtn').onclick=async()=>{try{const r=await call({action:'join',code:$('joinCode').value});refresh();window.openMatch(r.match_id)}catch(e){say(e.message)}};
